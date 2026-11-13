@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="id" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WMS Pro - Warehouse Management System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- HTML5-QRCode for Camera Barcode Scanning -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <!-- JsBarcode for Barcode Generation -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <!-- jsPDF & AutoTable for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <!-- PapaParse for CSV Upload -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+        /* Camera video fix */
+        #reader video {
+            border-radius: 0.75rem;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Brand -->
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-600 text-white p-2 rounded-xl shadow-md shadow-blue-500/20">
+                        <i data-lucide="warehouse" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-lg tracking-tight leading-none">WMS PRO</h1>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Smart Inventory & Scanner</p>
+                    </div>
+                </div>
+
+                <!-- Right Actions -->
+                <div class="flex items-center gap-2">
+                    <button onclick="openDatabaseModal()" class="flex items-center gap-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-xl transition">
+                        <i data-lucide="database" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i>
+                        <span class="hidden sm:inline">Database CSV</span>
+                    </button>
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition" title="Ganti Tema">
+                        <i data-lucide="moon" class="w-5 h-5 hidden dark:block"></i>
+                        <i data-lucide="sun" class="w-5 h-5 block dark:hidden"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Desktop Navigation Tabs -->
+    <nav class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 hidden md:block">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex space-x-2 py-2" id="desktop-nav">
+                <button data-tab="transaksi" onclick="switchTab('transaksi')" class="nav-btn active flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition">
+                    <i data-lucide="arrow-left-right" class="w-4 h-4"></i> Transaksi (IN / MOVE / OUT)
+                </button>
+                <button data-tab="inventory" onclick="switchTab('inventory')" class="nav-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition">
+                    <i data-lucide="boxes" class="w-4 h-4"></i> Total Inventory & Lokasi
+                </button>
+                <button data-tab="barcode" onclick="switchTab('barcode')" class="nav-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition">
+                    <i data-lucide="qr-code" class="w-4 h-4"></i> Barcode Generator
+                </button>
+                <button data-tab="opname" onclick="switchTab('opname')" class="nav-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition">
+                    <i data-lucide="clipboard-check" class="w-4 h-4"></i> Stock Opname & PDF
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8">
+
+        <!-- Summary KPI Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Total Stok Gudang</span>
+                    <div class="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+                        <i data-lucide="package" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <p id="kpi-total-stock" class="text-2xl font-bold mt-2">0</p>
+                <p class="text-[11px] text-slate-400 mt-1">Unit aktif di rak</p>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Lokasi Terisi</span>
+                    <div class="p-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                        <i data-lucide="map-pin" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <p id="kpi-filled-locations" class="text-2xl font-bold mt-2">0 <span class="text-sm font-normal text-slate-400">/ 0</span></p>
+                <p class="text-[11px] text-slate-400 mt-1">Kapasitas rak terpakai</p>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Total Barang Keluar (OUT)</span>
+                    <div class="p-2 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-xl">
+                        <i data-lucide="truck" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <p id="kpi-total-out" class="text-2xl font-bold mt-2">0</p>
+                <p class="text-[11px] text-slate-400 mt-1">Akumulasi log OUT</p>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Master SKU</span>
+                    <div class="p-2 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-xl">
+                        <i data-lucide="barcode" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <p id="kpi-master-sku" class="text-2xl font-bold mt-2">0</p>
+                <p class="text-[11px] text-slate-400 mt-1">Item terdaftar di DB</p>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 1: TRANSAKSI (IN / MOVE / OUT) ==================== -->
+        <section id="tab-transaksi" class="tab-content space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Form Input Transaksi -->
+                <div class="lg:col-span-7 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 sm:p-6 shadow-sm">
+                    <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
+                        <i data-lucide="scan-line" class="w-5 h-5 text-blue-600"></i> Input Mutasi Gudang
+                    </h2>
+
+                    <!-- Mode Selector Pills -->
+                    <div class="grid grid-cols-3 gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-2xl mb-5">
+                        <button type="button" onclick="setTransactionMode('IN')" id="mode-btn-IN" class="mode-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition flex flex-col items-center gap-0.5 bg-emerald-600 text-white shadow-sm">
+                            <span>IN (MASUK)</span>
+                            <span class="text-[10px] opacity-90 font-normal">Fungsi: TAMBAH (+)</span>
+                        </button>
+                        <button type="button" onclick="setTransactionMode('MOVE')" id="mode-btn-MOVE" class="mode-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition flex flex-col items-center gap-0.5 text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800">
+                            <span>MOVE (PINDAH)</span>
+                            <span class="text-[10px] opacity-80 font-normal">Fungsi: KURANG (-)</span>
+                        </button>
+                        <button type="button" onclick="setTransactionMode('OUT')" id="mode-btn-OUT" class="mode-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition flex flex-col items-center gap-0.5 text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800">
+                            <span>OUT (KELUAR)</span>
+                            <span class="text-[10px] opacity-80 font-normal">KURANG (-) & TAMBAH (+)</span>
+                        </button>
+                    </div>
+
+                    <!-- Logic Info Banner -->
+                    <div id="logic-banner" class="mb-5 p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-2.5">
+                        <i data-lucide="info" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                        <div id="logic-banner-text">
+                            <strong>Logika IN (TAMBAH):</strong> Menambahkan jumlah stok barang masuk ke dalam lokasi rak yang dipilih.
+                        </div>
+                    </div>
+
+                    <form id="transaction-form" onsubmit="handleTransactionSubmit(event)" class="space-y-4">
+                        <!-- Input Lokasi -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">
+                                <span id="label-lokasi-asal">Lokasi Rak</span> <span class="text-red-500">*</span>
+                            </label>
+                            <div class="flex gap-2">
+                                <div class="relative flex-1">
+                                    <input type="text" id="tx-location" list="location-list" required placeholder="Scan atau ketik kode lokasi (cth: A22000101)" oninput="lookupLocationInfo()" class="w-full pl-3.5 pr-10 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none uppercase">
+                                    <datalist id="location-list"></datalist>
+                                </div>
+                                <button type="button" onclick="startScanner('tx-location')" class="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center gap-1.5 text-xs font-medium shadow-sm active:scale-95 transition shrink-0">
+                                    <i data-lucide="camera" class="w-4 h-4"></i>
+                                    <span>Scan Lokasi</span>
+                                </button>
+                            </div>
+                            <p id="tx-location-info" class="text-xs text-slate-500 dark:text-slate-400 mt-1 hidden"></p>
+                        </div>
+
+                        <!-- Input Lokasi Tujuan (Opsional khusus MOVE jika ingin dipindah ke rak lain) -->
+                        <div id="move-target-wrapper" class="hidden">
+                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">
+                                Lokasi Tujuan Pindah <span class="text-slate-400 font-normal">(Opsional - kosongkan jika hanya mengurangi stok)</span>
+                            </label>
+                            <div class="flex gap-2">
+                                <input type="text" id="tx-location-target" list="location-list" placeholder="Scan lokasi rak tujuan (opsional)" class="flex-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none uppercase">
+                                <button type="button" onclick="startScanner('tx-location-target')" class="px-3.5 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl flex items-center gap-1.5 text-xs font-medium shadow-sm active:scale-95 transition shrink-0">
+                                    <i data-lucide="camera" class="w-4 h-4"></i>
+                                    <span>Scan</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Input Barcode / SKU Barang -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">
+                                Barcode / SKU Barang <span class="text-red-500">*</span>
+                            </label>
+                            <div class="flex gap-2">
+                                <div class="relative flex-1">
+                                    <input type="text" id="tx-barcode" list="item-list" required placeholder="Scan barcode atau cari SKU/Nama..." oninput="lookupItemInfo()" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                    <datalist id="item-list"></datalist>
+                                </div>
+                                <button type="button" onclick="startScanner('tx-barcode')" class="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center gap-1.5 text-xs font-medium shadow-sm active:scale-95 transition shrink-0">
+                                    <i data-lucide="camera" class="w-4 h-4"></i>
+                                    <span>Scan Barang</span>
+                                </button>
+                            </div>
+                            <!-- Item Preview Card -->
+                            <div id="tx-item-preview" class="mt-2 p-3 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 hidden">
+                                <div class="flex justify-between items-start gap-2">
+                                    <div>
+                                        <span id="preview-sku" class="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">SKU: -</span>
+                                        <p id="preview-name" class="text-xs font-semibold mt-1 text-slate-800 dark:text-slate-100">-</p>
+                                    </div>
+                                    <div class="text-right shrink-0">
+                                        <span class="text-[11px] text-slate-400 block">Stok di Lokasi Ini</span>
+                                        <span id="preview-loc-stock" class="text-sm font-bold text-blue-600 dark:text-blue-400">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Input Quantity -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">
+                                    Jumlah (Qty) <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex items-center">
+                                    <button type="button" onclick="adjustQty(-1)" class="p-2.5 bg-slate-200 dark:bg-slate-700 rounded-l-xl hover:bg-slate-300 dark:hover:bg-slate-600 font-bold w-11">-</button>
+                                    <input type="number" id="tx-qty" min="1" value="1" required class="w-full py-2.5 text-center bg-slate-50 dark:bg-slate-900 border-y border-slate-300 dark:border-slate-600 text-sm font-semibold outline-none">
+                                    <button type="button" onclick="adjustQty(1)" class="p-2.5 bg-slate-200 dark:bg-slate-700 rounded-r-xl hover:bg-slate-300 dark:hover:bg-slate-600 font-bold w-11">+</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">
+                                    Catatan / Referensi
+                                </label>
+                                <input type="text" id="tx-note" placeholder="No. PO / DO / Keterangan" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+
+                        <button type="submit" id="tx-submit-btn" class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm">
+                            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                            <span>Proses Transaksi IN (TAMBAH STOK)</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Riwayat Transaksi Terakhir -->
+                <div class="lg:col-span-5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 sm:p-6 shadow-sm flex flex-col">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-base font-semibold flex items-center gap-2">
+                            <i data-lucide="history" class="w-5 h-5 text-slate-500"></i> Log Aktivitas Terbaru
+                        </h3>
+                        <button onclick="clearLogs()" class="text-xs text-slate-400 hover:text-red-500 transition">Hapus Log</button>
+                    </div>
+                    <div id="transaction-history-list" class="flex-1 overflow-y-auto max-h-[430px] space-y-2.5 pr-1">
+                        <!-- Log items rendered here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 2: TOTAL INVENTORY & SEARCH ==================== -->
+        <section id="tab-inventory" class="tab-content hidden space-y-5">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+                    <div>
+                        <h2 class="text-base font-semibold">Total Inventory & Sebaran Lokasi</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Pantau stok real-time per rak, akumulasi barang keluar (OUT), dan pencarian cepat.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="exportInventoryCSV()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl text-xs font-medium flex items-center gap-1.5 transition">
+                            <i data-lucide="download" class="w-4 h-4"></i> Export CSV
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search & Filter Bar -->
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 mb-5">
+                    <div class="sm:col-span-7 relative">
+                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                        <input type="text" id="inventory-search" oninput="renderInventoryTable()" placeholder="Cari berdasarkan Barcode, SKU, Nama Barang, atau Lokasi..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="sm:col-span-3">
+                        <select id="inventory-gondola-filter" onchange="renderInventoryTable()" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="ALL">Semua Gondola</option>
+                        </select>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <select id="inventory-stock-filter" onchange="renderInventoryTable()" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="AVAILABLE">Ada Stok (>0)</option>
+                            <option value="ALL">Semua Master</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Inventory Table -->
+                <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700 text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">
+                                <th class="py-3 px-4">Barcode / SKU</th>
+                                <th class="py-3 px-4">Nama Barang</th>
+                                <th class="py-3 px-4">Lokasi & Gondola</th>
+                                <th class="py-3 px-4 text-right">Stok Tersedia</th>
+                                <th class="py-3 px-4 text-right">Total OUT</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-table-body" class="divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+                            <!-- Rows rendered via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 3: BARCODE GENERATOR ==================== -->
+        <section id="tab-barcode" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Generator Controls -->
+                <div class="lg:col-span-5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 sm:p-6 shadow-sm space-y-4">
+                    <h2 class="text-base font-semibold flex items-center gap-2">
+                        <i data-lucide="barcode" class="w-5 h-5 text-blue-600"></i> Barcode Generator
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Buat label barcode untuk barang atau lokasi rak agar mudah di-scan menggunakan kamera HP.</p>
+
+                    <div>
+                        <label class="block text-xs font-medium mb-1.5">Tipe Label</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" onclick="setBarcodeType('ITEM')" id="bc-type-ITEM" class="py-2 px-3 rounded-xl text-xs font-semibold bg-blue-600 text-white">Label Barang</button>
+                            <button type="button" onclick="setBarcodeType('LOCATION')" id="bc-type-LOCATION" class="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">Label Lokasi Rak</button>
+                        </div>
+                    </div>
+
+                    <div id="bc-select-item-group">
+                        <label class="block text-xs font-medium mb-1.5">Pilih dari Database Barang</label>
+                        <select id="bc-item-select" onchange="selectPresetBarcode('ITEM')" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-sm outline-none">
+                            <option value="">-- Pilih Barang --</option>
+                        </select>
+                    </div>
+
+                    <div id="bc-select-loc-group" class="hidden">
+                        <label class="block text-xs font-medium mb-1.5">Pilih dari Database Lokasi</label>
+                        <select id="bc-loc-select" onchange="selectPresetBarcode('LOCATION')" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-sm outline-none">
+                            <option value="">-- Pilih Lokasi --</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium mb-1.5">Kode Barcode (Custom / Otomatis)</label>
+                        <input type="text" id="bc-code-input" value="2000094455746" oninput="generateBarcodePreview()" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-sm font-mono outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium mb-1.5">Keterangan Label (Nama Barang / Gondola)</label>
+                        <input type="text" id="bc-label-input" value="DELETE REFRESH WALKER (WOMEN FOOT MASSAGE INSOLE)" oninput="generateBarcodePreview()" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-sm outline-none">
+                    </div>
+
+                    <button type="button" onclick="printBarcodeLabel()" class="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition">
+                        <i data-lucide="printer" class="w-4 h-4"></i> Cetak / Simpan Label
+                    </button>
+                </div>
+
+                <!-- Live Barcode Preview -->
+                <div class="lg:col-span-7 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm flex flex-col items-center justify-center min-h-[300px]">
+                    <span class="text-xs font-medium text-slate-400 mb-4 uppercase tracking-wider">Preview Label Siap Scan</span>
+                    <div id="printable-barcode-area" class="bg-white text-slate-900 p-6 rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center max-w-sm w-full shadow-sm">
+                        <span id="bc-preview-badge" class="text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-slate-900 text-white mb-2">ITEM BARCODE</span>
+                        <svg id="barcode-svg" class="w-full max-w-[260px] h-auto"></svg>
+                        <p id="bc-preview-title" class="text-xs font-bold text-center mt-2 line-clamp-2">DELETE REFRESH WALKER</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 4: STOCK OPNAME & PDF ==================== -->
+        <section id="tab-opname" class="tab-content hidden space-y-5">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 sm:p-6 shadow-sm">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-base font-semibold flex items-center gap-2">
+                            <i data-lucide="clipboard-check" class="w-5 h-5 text-blue-600"></i> Stock Opname (Lokasi Terisi Barang)
+                        </h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Hanya menampilkan lokasi yang memiliki stok sistem. Masukkan hasil hitung fisik untuk menghitung persentase akurasi.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="scanForOpname()" class="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+                            <i data-lucide="camera" class="w-4 h-4"></i> Scan Lokasi Opname
+                        </button>
+                        <button onclick="downloadOpnamePDF()" class="px-3.5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+                            <i data-lucide="file-down" class="w-4 h-4"></i> Download Laporan PDF
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Opname Progress & Accuracy Metrics -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                    <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700">
+                        <span class="text-xs text-slate-500 dark:text-slate-400">Progres Lokasi Terisi Diperiksa</span>
+                        <div class="flex items-end justify-between mt-1">
+                            <span id="opname-progress-pct" class="text-2xl font-bold text-blue-600 dark:text-blue-400">0%</span>
+                            <span id="opname-progress-count" class="text-xs text-slate-500">0 / 0 Lokasi</span>
+                        </div>
+                        <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full mt-2 overflow-hidden">
+                            <div id="opname-progress-bar" class="bg-blue-600 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700">
+                        <span class="text-xs text-slate-500 dark:text-slate-400">Persentase Akurasi Stok (Match)</span>
+                        <div class="flex items-end justify-between mt-1">
+                            <span id="opname-accuracy-pct" class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">0%</span>
+                            <span id="opname-accuracy-detail" class="text-xs text-slate-500">0 Sesuai / 0 Selisih</span>
+                        </div>
+                        <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full mt-2 overflow-hidden">
+                            <div id="opname-accuracy-bar" class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
+                        <span class="text-xs text-slate-500 dark:text-slate-400">Sinkronisasi Hasil Opname</span>
+                        <button onclick="applyOpnameAdjustments()" class="mt-2 w-full py-2 px-3 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl text-xs font-medium transition">
+                            Sesuaikan Stok Sistem ke Fisik
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Opname Table -->
+                <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700 text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">
+                                <th class="py-3 px-4">Lokasi (Gondola)</th>
+                                <th class="py-3 px-4">Barang (SKU)</th>
+                                <th class="py-3 px-4 text-center">Stok Sistem</th>
+                                <th class="py-3 px-4 text-center w-32">Stok Fisik</th>
+                                <th class="py-3 px-4 text-center">Selisih</th>
+                                <th class="py-3 px-4 text-center">Akurasi %</th>
+                                <th class="py-3 px-4 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="opname-table-body" class="divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+                            <!-- Rendered via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="md:hidden fixed bottom-0 inset-x-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 z-30 flex justify-around py-2 px-1 shadow-lg">
+        <button data-tab="transaksi" onclick="switchTab('transaksi')" class="mobile-nav-btn active flex flex-col items-center gap-1 p-1.5 rounded-xl text-[11px] font-medium text-blue-600 dark:text-blue-400">
+            <i data-lucide="arrow-left-right" class="w-5 h-5"></i>
+            <span>Transaksi</span>
+        </button>
+        <button data-tab="inventory" onclick="switchTab('inventory')" class="mobile-nav-btn flex flex-col items-center gap-1 p-1.5 rounded-xl text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            <i data-lucide="boxes" class="w-5 h-5"></i>
+            <span>Inventory</span>
+        </button>
+        <button data-tab="barcode" onclick="switchTab('barcode')" class="mobile-nav-btn flex flex-col items-center gap-1 p-1.5 rounded-xl text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            <i data-lucide="qr-code" class="w-5 h-5"></i>
+            <span>Barcode</span>
+        </button>
+        <button data-tab="opname" onclick="switchTab('opname')" class="mobile-nav-btn flex flex-col items-center gap-1 p-1.5 rounded-xl text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+            <span>Opname</span>
+        </button>
+    </nav>
+
+    <!-- ==================== CAMERA SCANNER MODAL ==================== -->
+    <div id="scanner-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-semibold text-base flex items-center gap-2">
+                    <i data-lucide="camera" class="w-5 h-5 text-blue-600"></i> Scan Barcode Kamera
+                </h3>
+                <button onclick="stopScanner()" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p id="scanner-target-label" class="text-xs text-slate-500 dark:text-slate-400 mb-3">Arahkan kamera handphone ke barcode barang atau lokasi...</p>
+            <div id="reader" class="w-full overflow-hidden rounded-xl bg-black min-h-[250px]"></div>
+            <button onclick="stopScanner()" class="mt-4 w-full py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-xl text-sm font-medium">
+                Tutup Kamera
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== DATABASE CSV IMPORT MODAL ==================== -->
+    <div id="database-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="font-semibold text-base flex items-center gap-2">
+                    <i data-lucide="database" class="w-5 h-5 text-blue-600"></i> Kelola Database Spreadsheet (CSV)
+                </h3>
+                <button onclick="closeDatabaseModal()" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+                Sistem sudah memuat sampel dari file <strong>DATA BASE INVENTORY</strong> Anda. Anda juga dapat mengunggah ulang file CSV terbaru dari Spreadsheet Anda di bawah ini:
+            </p>
+
+            <div class="space-y-3">
+                <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                    <label class="block text-xs font-semibold mb-1">1. Upload DATABASE_BARANG.csv</label>
+                    <p class="text-[11px] text-slate-400 mb-2">Kolom wajib: BARCODE, SKU, ITEM NAME</p>
+                    <input type="file" accept=".csv" onchange="handleCSVUpload(event, 'BARANG')" class="text-xs w-full file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700">
+                </div>
+
+                <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                    <label class="block text-xs font-semibold mb-1">2. Upload DATABASE_LOCATION.csv</label>
+                    <p class="text-[11px] text-slate-400 mb-2">Kolom wajib: LOCATIONS, GONDOLA, COORDINATE</p>
+                    <input type="file" accept=".csv" onchange="handleCSVUpload(event, 'LOCATION')" class="text-xs w-full file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700">
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-700">
+                <button onclick="resetToDefaultData()" class="text-xs text-rose-600 hover:underline font-medium">Reset ke Data Awal</button>
+                <button onclick="closeDatabaseModal()" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold">Selesai</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 1. INITIAL SEED DATA (FROM USER SPREADSHEET) ====================
+        const DEFAULT_ITEMS = [
+            { barcode: "2000094455746", sku: "9445574", name: "DELETE REFRESH WALKER (WOMEN FOOT MASSAGE INSOLE)" },
+            { barcode: "2000094455814", sku: "9445581", name: "DELETE REFRESH WALKER (WOMEN ACTIVE CARBON INSOLE)" },
+            { barcode: "2000094455920", sku: "9445592", name: "DELETE REFRESH WALKER (MEN COMFORT GEL INSOLE)" },
+            { barcode: "2000094456019", sku: "9445601", name: "DELETE REFRESH WALKER (SPORT ARCH SUPPORT INSOLE)" },
+            { barcode: "2000094456118", sku: "9445611", name: "DELETE REFRESH WALKER (HEEL CUSHION PAD PAIR)" }
+        ];
+
+        const DEFAULT_LOCATIONS = [
+            { location: "A22000101", gondola: "1", coordinate: "36.676587, 17.382814" },
+            { location: "A22000102", gondola: "1", coordinate: "36.676587, 17.382814" },
+            { location: "A22000103", gondola: "1", coordinate: "36.676587, 17.382814" },
+            { location: "B22000201", gondola: "2", coordinate: "44.821429, 17.382814" },
+            { location: "B22000202", gondola: "2", coordinate: "44.821429, 17.382814" },
+            { location: "C22000301", gondola: "3", coordinate: "51.120411, 17.382814" }
+        ];
+
+        // ==================== 2. APPLICATION STATE ====================
+        let state = {
+            items: [],
+            locations: [],
+            // Key: "LOCATION::BARCODE" -> { location, barcode, sku, name, gondola, stock, totalOut }
+            inventory: {},
+            logs: [],
+            // Key: "LOCATION::BARCODE" -> physicalQty (number)
+            opnameCounts: {},
+            currentMode: 'IN'
+        };
+
+        let html5QrCode = null;
+        let currentScanTarget = null;
+
+        // ==================== 3. INITIALIZATION & STORAGE ====================
+        function initApp() {
+            lucide.createIcons();
+            loadState();
+            populateDatalists();
+            setTransactionMode('IN');
+            refreshAllUI();
+            generateBarcodePreview();
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('wms_pro_state_v1');
+            if (saved) {
+                try {
+                    state = JSON.parse(saved);
+                    return;
+                } catch (e) {
+                    console.error("Failed parsing saved state", e);
+                }
+            }
+            // Seed initial data if empty
+            state.items = [...DEFAULT_ITEMS];
+            state.locations = [...DEFAULT_LOCATIONS];
+            state.inventory = {
+                "A22000101::2000094455746": {
+                    location: "A22000101",
+                    barcode: "2000094455746",
+                    sku: "9445574",
+                    name: "DELETE REFRESH WALKER (WOMEN FOOT MASSAGE INSOLE)",
+                    gondola: "1",
+                    stock: 24,
+                    totalOut: 5
+                },
+                "B22000201::2000094455814": {
+                    location: "B22000201",
+                    barcode: "2000094455814",
+                    sku: "9445581",
+                    name: "DELETE REFRESH WALKER (WOMEN ACTIVE CARBON INSOLE)",
+                    gondola: "2",
+                    stock: 15,
+                    totalOut: 2
+                }
+            };
+            state.logs = [
+                {
+                    id: Date.now(),
+                    time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+                    type: 'IN',
+                    location: 'A22000101',
+                    barcode: '2000094455746',
+                    name: 'DELETE REFRESH WALKER (WOMEN FOOT MASSAGE INSOLE)',
+                    qty: 24,
+                    detail: '+24 Stok Awal Sistem'
+                }
+            ];
+            saveState();
+        }
+
+        function saveState() {
+            localStorage.setItem('wms_pro_state_v1', JSON.stringify(state));
+        }
+
+        function resetToDefaultData() {
+            localStorage.removeItem('wms_pro_state_v1');
+            state.opnameCounts = {};
+            loadState();
+            populateDatalists();
+            refreshAllUI();
+            closeDatabaseModal();
+            showToast("Database berhasil direset ke data awal.", "info");
+        }
+
+        // ==================== 4. TRANSACTION LOGIC (IN, MOVE, OUT) ====================
+        function setTransactionMode(mode) {
+            state.currentMode = mode;
+
+            // Reset button styles
+            ['IN', 'MOVE', 'OUT'].forEach(m => {
+                const btn = document.getElementById(`mode-btn-${m}`);
+                btn.className = "mode-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition flex flex-col items-center gap-0.5 text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800";
+            });
+
+            const activeBtn = document.getElementById(`mode-btn-${mode}`);
+            const banner = document.getElementById('logic-banner');
+            const bannerText = document.getElementById('logic-banner-text');
+            const submitBtn = document.getElementById('tx-submit-btn');
+            const moveTargetWrapper = document.getElementById('move-target-wrapper');
+            const labelLokasiAsal = document.getElementById('label-lokasi-asal');
+
+            if (mode === 'IN') {
+                activeBtn.className = "mode-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition flex flex-col items-center gap-0.5 bg-emerald-600 text-white shadow-sm";
+                banner.className = "mb-5 p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-2.5";
+                bannerText.innerHTML = `<strong>Logika IN (TAMBAH):</strong> Menambahkan jumlah stok barang masuk (+) ke dalam lokasi rak tujuan.`;
+                submitBtn.className = "w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm";
+                submitBtn.innerHTML = `<i data-lucide="plus-circle" class="w-5 h-5"></i><span>Proses IN (TAMBAH STOK)</span>`;
+                moveTargetWrapper.classList.add('hidden');
+                labelLokasiAsal.textContent = "Lokasi Rak Penyimpanan";
+            } else if (mode === 'MOVE') {
+                activeBtn.className = "mode-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition flex flex-col items-center gap-0.5 bg-amber-500 text-white shadow-sm";
+                banner.className = "mb-5 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5";
+                bannerText.innerHTML = `<strong>Logika MOVE (KURANG):</strong> Mengurangi stok (-) dari lokasi asal (dan otomatis menambah ke lokasi tujuan jika diisi).`;
+                submitBtn.className = "w-full py-3 px-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm";
+                submitBtn.innerHTML = `<i data-lucide="arrow-right-circle" class="w-5 h-5"></i><span>Proses MOVE (KURANGI STOK LOKASI)</span>`;
+                moveTargetWrapper.classList.remove('hidden');
+                labelLokasiAsal.textContent = "Lokasi Rak Asal";
+            } else if (mode === 'OUT') {
+                activeBtn.className = "mode-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition flex flex-col items-center gap-0.5 bg-rose-600 text-white shadow-sm";
+                banner.className = "mb-5 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/50 text-xs text-rose-800 dark:text-rose-300 flex items-start gap-2.5";
+                bannerText.innerHTML = `<strong>Logika OUT (KURANG & TAMBAH):</strong> Mengurangi stok tersedia di lokasi (-) sekaligus menambahkan catatan ke Akumulasi Barang Keluar / Total OUT (+).`;
+                submitBtn.className = "w-full py-3 px-4 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm";
+                submitBtn.innerHTML = `<i data-lucide="log-out" class="w-5 h-5"></i><span>Proses OUT (KURANG STOK & TAMBAH OUT)</span>`;
+                moveTargetWrapper.classList.add('hidden');
+                labelLokasiAsal.textContent = "Lokasi Pengambilan Barang";
+            }
+            lucide.createIcons();
+            lookupItemInfo();
+        }
+
+        function handleTransactionSubmit(e) {
+            e.preventDefault();
+            const locCode = document.getElementById('tx-location').value.trim().toUpperCase();
+            const targetLocCode = document.getElementById('tx-location-target').value.trim().toUpperCase();
+            const rawBarcode = document.getElementById('tx-barcode').value.trim();
+            const qty = parseInt(document.getElementById('tx-qty').value, 10);
+            const note = document.getElementById('tx-note').value.trim();
+
+            if (!locCode || !rawBarcode || isNaN(qty) || qty <= 0) {
+                showToast("Mohon lengkapi lokasi, barang, dan jumlah yang valid.", "error");
+                return;
+            }
+
+            // Find Location in Master
+            const locObj = state.locations.find(l => l.location.toUpperCase() === locCode);
+            if (!locObj) {
+                showToast(`Lokasi "${locCode}" tidak ditemukan di Database Lokasi!`, "error");
+                return;
+            }
+
+            // Find Item in Master (by Barcode or SKU)
+            const itemObj = state.items.find(i => i.barcode === rawBarcode || i.sku === rawBarcode);
+            if (!itemObj) {
+                showToast(`Barang dengan kode "${rawBarcode}" tidak ditemukan di Database Barang!`, "error");
+                return;
+            }
+
+            const key = `${locObj.location}::${itemObj.barcode}`;
+            if (!state.inventory[key]) {
+                state.inventory[key] = {
+                    location: locObj.location,
+                    barcode: itemObj.barcode,
+                    sku: itemObj.sku,
+                    name: itemObj.name,
+                    gondola: locObj.gondola,
+                    stock: 0,
+                    totalOut: 0
+                };
+            }
+
+            const record = state.inventory[key];
+            const mode = state.currentMode;
+            let logDetail = "";
+
+            if (mode === 'IN') {
+                // IN -> FUNGSI TAMBAH
+                record.stock += qty;
+                logDetail = `TAMBAH +${qty} (Stok: ${record.stock})`;
+                showToast(`IN Berhasil: +${qty} ${itemObj.sku} ke ${locObj.location}`, "success");
+
+            } else if (mode === 'MOVE') {
+                // MOVE -> FUNGSI KURANG
+                if (record.stock < qty) {
+                    showToast(`Stok di ${locObj.location} tidak cukup! Tersedia: ${record.stock}`, "error");
+                    return;
+                }
+                record.stock -= qty;
+
+                if (targetLocCode) {
+                    const targetLocObj = state.locations.find(l => l.location.toUpperCase() === targetLocCode);
+                    if (!targetLocObj) {
+                        // Rollback
+                        record.stock += qty;
+                        showToast(`Lokasi tujuan "${targetLocCode}" tidak valid!`, "error");
+                        return;
+                    }
+                    const targetKey = `${targetLocObj.location}::${itemObj.barcode}`;
+                    if (!state.inventory[targetKey]) {
+                        state.inventory[targetKey] = {
+                            location: targetLocObj.location,
+                            barcode: itemObj.barcode,
+                            sku: itemObj.sku,
+                            name: itemObj.name,
+                            gondola: targetLocObj.gondola,
+                            stock: 0,
+                            totalOut: 0
+                        };
+                    }
+                    state.inventory[targetKey].stock += qty;
+                    logDetail = `KURANG -${qty} dari ${locObj.location} → +${qty} ke ${targetLocObj.location}`;
+                    showToast(`MOVE Berhasil: Pindah ${qty} unit ke ${targetLocObj.location}`, "success");
+                } else {
+                    logDetail = `KURANG -${qty} dari ${locObj.location} (Sisa: ${record.stock})`;
+                    showToast(`MOVE Berhasil: Stok ${locObj.location} dikurangi ${qty}`, "success");
+                }
+
+            } else if (mode === 'OUT') {
+                // OUT -> FUNGSI KURANG DAN TAMBAH
+                if (record.stock < qty) {
+                    showToast(`Stok di ${locObj.location} tidak cukup untuk OUT! Tersedia: ${record.stock}`, "error");
+                    return;
+                }
+                record.stock -= qty;      // Fungsi KURANG pada stok lokasi
+                record.totalOut += qty;   // Fungsi TAMBAH pada total barang keluar (OUT)
+                logDetail = `KURANG Stok -${qty} | TAMBAH Total OUT +${qty}`;
+                showToast(`OUT Berhasil: Stok -${qty}, Total OUT +${qty}`, "success");
+            }
+
+            // Record Activity Log
+            state.logs.unshift({
+                id: Date.now(),
+                time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+                type: mode,
+                location: locObj.location,
+                barcode: itemObj.barcode,
+                name: itemObj.name,
+                qty: qty,
+                detail: note ? `${logDetail} • Ket: ${note}` : logDetail
+            });
+
+            saveState();
+            refreshAllUI();
+            lookupItemInfo();
+            document.getElementById('tx-qty').value = 1;
+            document.getElementById('tx-note').value = '';
+        }
+
+        function lookupLocationInfo() {
+            const code = document.getElementById('tx-location').value.trim().toUpperCase();
+            const infoEl = document.getElementById('tx-location-info');
+            const found = state.locations.find(l => l.location.toUpperCase() === code);
+            if (found) {
+                infoEl.textContent = `✓ Lokasi Valid • Gondola: ${found.gondola} • Koordinat: ${found.coordinate || '-'}`;
+                infoEl.className = "text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium";
+                infoEl.classList.remove('hidden');
+            } else if (code.length > 0) {
+                infoEl.textContent = `⚠ Kode lokasi tidak terdaftar di database`;
+                infoEl.className = "text-xs text-amber-600 dark:text-amber-400 mt-1";
+                infoEl.classList.remove('hidden');
+            } else {
+                infoEl.classList.add('hidden');
+            }
+            lookupItemInfo();
+        }
+
+        function lookupItemInfo() {
+            const raw = document.getElementById('tx-barcode').value.trim();
+            const locCode = document.getElementById('tx-location').value.trim().toUpperCase();
+            const preview = document.getElementById('tx-item-preview');
+
+            const item = state.items.find(i => i.barcode === raw || i.sku === raw);
+            if (item) {
+                document.getElementById('preview-sku').textContent = `SKU: ${item.sku} | BC: ${item.barcode}`;
+                document.getElementById('preview-name').textContent = item.name;
+                const key = `${locCode}::${item.barcode}`;
+                const currentStock = state.inventory[key] ? state.inventory[key].stock : 0;
+                document.getElementById('preview-loc-stock').textContent = currentStock;
+                preview.classList.remove('hidden');
+            } else {
+                preview.classList.add('hidden');
+            }
+        }
+
+        function adjustQty(delta) {
+            const input = document.getElementById('tx-qty');
+            let val = parseInt(input.value, 10) || 1;
+            val = Math.max(1, val + delta);
+            input.value = val;
+        }
+
+        function clearLogs() {
+            state.logs = [];
+            saveState();
+            renderLogs();
+            showToast("Riwayat log dibersihkan.", "info");
+        }
+
+        // ==================== 5. CAMERA BARCODE SCANNER ====================
+        function startScanner(targetInputId) {
+            currentScanTarget = targetInputId;
+            const modal = document.getElementById('scanner-modal');
+            modal.classList.remove('hidden');
+
+            const labelMap = {
+                'tx-location': 'Scan Barcode Lokasi Rak',
+                'tx-location-target': 'Scan Barcode Lokasi Tujuan',
+                'tx-barcode': 'Scan Barcode Produk / Barang',
+                'opname-scan': 'Scan Barcode Lokasi untuk Stock Opname'
+            };
+            document.getElementById('scanner-target-label').textContent = labelMap[targetInputId] || 'Arahkan kamera ke barcode...';
+
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 150 } },
+                (decodedText) => {
+                    // Beep feedback via Web Audio API
+                    playBeep();
+                    if (currentScanTarget === 'opname-scan') {
+                        handleOpnameScanResult(decodedText.trim().toUpperCase());
+                    } else {
+                        const inputEl = document.getElementById(currentScanTarget);
+                        if (inputEl) {
+                            inputEl.value = decodedText.trim();
+                            inputEl.dispatchEvent(new Event('input'));
+                        }
+                    }
+                    showToast(`Berhasil scan: ${decodedText}`, "success");
+                    stopScanner();
+                },
+                (errorMessage) => {
+                    // Ignore continuous scan frames without barcode
+                }
+            ).catch(err => {
+                console.error(err);
+                showToast("Kamera tidak dapat diakses. Pastikan izin kamera aktif & menggunakan HTTPS.", "error");
+                stopScanner();
+            });
+        }
+
+        function stopScanner() {
+            const modal = document.getElementById('scanner-modal');
+            modal.classList.add('hidden');
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().catch(err => console.error(err));
+            }
+        }
+
+        function playBeep() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                osc.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.12);
+            } catch (e) {}
+        }
+
+        // ==================== 6. INVENTORY & SEARCH RENDERING ====================
+        function renderInventoryTable() {
+            const query = document.getElementById('inventory-search').value.toLowerCase().trim();
+            const gondolaFilter = document.getElementById('inventory-gondola-filter').value;
+            const stockFilter = document.getElementById('inventory-stock-filter').value;
+            const tbody = document.getElementById('inventory-table-body');
+
+            let rows = Object.values(state.inventory);
+
+            // If showing ALL master items, merge items that have 0 stock
+            if (stockFilter === 'ALL') {
+                const existingBarcodes = new Set(rows.map(r => r.barcode));
+                state.items.forEach(item => {
+                    if (!existingBarcodes.has(item.barcode)) {
+                        rows.push({
+                            location: '-',
+                            barcode: item.barcode,
+                            sku: item.sku,
+                            name: item.name,
+                            gondola: '-',
+                            stock: 0,
+                            totalOut: 0
+                        });
+                    }
+                });
+            } else {
+                rows = rows.filter(r => r.stock > 0 || r.totalOut > 0);
+            }
+
+            // Apply Search & Gondola Filters
+            rows = rows.filter(r => {
+                const matchQuery = !query ||
+                    r.barcode.toLowerCase().includes(query) ||
+                    r.sku.toLowerCase().includes(query) ||
+                    r.name.toLowerCase().includes(query) ||
+                    r.location.toLowerCase().includes(query);
+                const matchGondola = gondolaFilter === 'ALL' || String(r.gondola) === gondolaFilter;
+                return matchQuery && matchGondola;
+            });
+
+            if (rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 text-xs">Tidak ada data inventory yang cocok dengan pencarian.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = rows.map(r => `
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition">
+                    <td class="py-3 px-4">
+                        <div class="font-mono text-xs font-semibold text-blue-600 dark:text-blue-400">${r.barcode}</div>
+                        <div class="text-[11px] text-slate-500">SKU: ${r.sku}</div>
+                    </td>
+                    <td class="py-3 px-4 font-medium text-xs sm:text-sm max-w-xs">${r.name}</td>
+                    <td class="py-3 px-4">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-700">
+                            <i data-lucide="map-pin" class="w-3 h-3 text-blue-500"></i> ${r.location}
+                        </span>
+                        <span class="text-[11px] text-slate-400 block mt-0.5">Gondola ${r.gondola}</span>
+                    </td>
+                    <td class="py-3 px-4 text-right font-bold ${r.stock > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}">
+                        ${r.stock}
+                    </td>
+                    <td class="py-3 px-4 text-right font-semibold text-rose-600 dark:text-rose-400">
+                        ${r.totalOut}
+                    </td>
+                </tr>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function exportInventoryCSV() {
+            const rows = Object.values(state.inventory);
+            const csv = Papa.unparse(rows.map(r => ({
+                LOCATION: r.location,
+                GONDOLA: r.gondola,
+                BARCODE: r.barcode,
+                SKU: r.sku,
+                ITEM_NAME: r.name,
+                STOCK_TERSEDIA: r.stock,
+                TOTAL_OUT: r.totalOut
+            })));
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `Total_Inventory_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+        }
+
+        // ==================== 7. BARCODE GENERATOR ====================
+        function setBarcodeType(type) {
+            const itemBtn = document.getElementById('bc-type-ITEM');
+            const locBtn = document.getElementById('bc-type-LOCATION');
+            const itemGrp = document.getElementById('bc-select-item-group');
+            const locGrp = document.getElementById('bc-select-loc-group');
+            const badge = document.getElementById('bc-preview-badge');
+
+            if (type === 'ITEM') {
+                itemBtn.className = "py-2 px-3 rounded-xl text-xs font-semibold bg-blue-600 text-white";
+                locBtn.className = "py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200";
+                itemGrp.classList.remove('hidden');
+                locGrp.classList.add('hidden');
+                badge.textContent = "ITEM BARCODE";
+            } else {
+                locBtn.className = "py-2 px-3 rounded-xl text-xs font-semibold bg-blue-600 text-white";
+                itemBtn.className = "py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200";
+                locGrp.classList.remove('hidden');
+                itemGrp.classList.add('hidden');
+                badge.textContent = "LOCATION BARCODE";
+            }
+        }
+
+        function selectPresetBarcode(type) {
+            if (type === 'ITEM') {
+                const bc = document.getElementById('bc-item-select').value;
+                const found = state.items.find(i => i.barcode === bc);
+                if (found) {
+                    document.getElementById('bc-code-input').value = found.barcode;
+                    document.getElementById('bc-label-input').value = `${found.sku} - ${found.name}`;
+                    generateBarcodePreview();
+                }
+            } else {
+                const loc = document.getElementById('bc-loc-select').value;
+                const found = state.locations.find(l => l.location === loc);
+                if (found) {
+                    document.getElementById('bc-code-input').value = found.location;
+                    document.getElementById('bc-label-input').value = `LOKASI: ${found.location} (GONDOLA ${found.gondola})`;
+                    generateBarcodePreview();
+                }
+            }
+        }
+
+        function generateBarcodePreview() {
+            const code = document.getElementById('bc-code-input').value.trim() || "000000";
+            const label = document.getElementById('bc-label-input').value.trim();
+            document.getElementById('bc-preview-title').textContent = label;
+
+            try {
+                JsBarcode("#barcode-svg", code, {
+                    format: "CODE128",
+                    lineColor: "#0f172a",
+                    width: 2,
+                    height: 70,
+                    displayValue: true,
+                    fontSize: 14,
+                    margin: 5
+                });
+            } catch (e) {
+                console.warn("Invalid barcode characters");
+            }
+        }
+
+        function printBarcodeLabel() {
+            const content = document.getElementById('printable-barcode-area').innerHTML;
+            const win = window.open('', '', 'width=450,height=400');
+            win.document.write(`
+                <html>
+                <head><title>Cetak Label Barcode</title></head>
+                <body style="font-family: sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0;">
+                    <div style="border:2px solid #000; padding:20px; border-radius:12px; text-align:center;">
+                        ${content}
+                    </div>
+                    <script>window.onload = function() { window.print(); window.close(); }<\/script>
+                </body>
+                </html>
+            `);
+            win.document.close();
+        }
+
+        // ==================== 8. STOCK OPNAME & PDF REPORT ====================
+        function getOccupiedLocations() {
+            // Mengacu khusus pada lokasi yang terisi barang (stock > 0)
+            return Object.values(state.inventory).filter(item => item.stock > 0);
+        }
+
+        function renderOpnameTable() {
+            const occupied = getOccupiedLocations();
+            const tbody = document.getElementById('opname-table-body');
+
+            if (occupied.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400 text-xs">Belum ada lokasi yang terisi stok barang. Lakukan transaksi IN terlebih dahulu.</td></tr>`;
+                updateOpnameStats();
+                return;
+            }
+
+            tbody.innerHTML = occupied.map(item => {
+                const key = `${item.location}::${item.barcode}`;
+                const hasCounted = state.opnameCounts[key] !== undefined && state.opnameCounts[key] !== "";
+                const phys = hasCounted ? Number(state.opnameCounts[key]) : null;
+                const diff = hasCounted ? phys - item.stock : null;
+
+                let accPct = "-";
+                if (hasCounted) {
+                    if (item.stock === 0 && phys === 0) accPct = "100%";
+                    else {
+                        const accuracy = Math.max(0, 100 - (Math.abs(diff) / item.stock) * 100);
+                        accPct = `${accuracy.toFixed(0)}%`;
+                    }
+                }
+
+                let statusBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] bg-slate-100 dark:bg-slate-700 text-slate-500">Belum Dicek</span>`;
+                if (hasCounted) {
+                    if (diff === 0) {
+                        statusBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-semibold">Sesuai (100%)</span>`;
+                    } else {
+                        statusBadge = `<span class="px-2 py-0.5 rounded-full text-[11px] bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-semibold">Selisih (${diff > 0 ? '+'+diff : diff})</span>`;
+                    }
+                }
+
+                return `
+                    <tr id="opname-row-${item.location}" class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                        <td class="py-3 px-4 font-semibold text-xs">
+                            ${item.location}
+                            <span class="block text-[11px] font-normal text-slate-400">Gondola ${item.gondola}</span>
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="text-xs font-medium line-clamp-1">${item.name}</div>
+                            <div class="text-[11px] font-mono text-slate-400">${item.barcode}</div>
+                        </td>
+                        <td class="py-3 px-4 text-center font-bold">${item.stock}</td>
+                        <td class="py-3 px-4 text-center">
+                            <input type="number" min="0" value="${hasCounted ? phys : ''}" placeholder="Qty fisik"
+                                onchange="updateOpnameCount('${key}', this.value)"
+                                class="w-24 px-2.5 py-1.5 text-center bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500">
+                        </td>
+                        <td class="py-3 px-4 text-center font-semibold ${diff === 0 ? 'text-emerald-600' : (diff !== null ? 'text-rose-600' : 'text-slate-400')}">
+                            ${diff !== null ? (diff > 0 ? `+${diff}` : diff) : '-'}
+                        </td>
+                        <td class="py-3 px-4 text-center font-semibold text-xs">${accPct}</td>
+                        <td class="py-3 px-4 text-center">${statusBadge}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            updateOpnameStats();
+        }
+
+        function updateOpnameCount(key, value) {
+            if (value === "" || value === null) {
+                delete state.opnameCounts[key];
+            } else {
+                state.opnameCounts[key] = Math.max(0, parseInt(value, 10));
+            }
+            saveState();
+            renderOpnameTable();
+        }
+
+        function updateOpnameStats() {
+            const occupied = getOccupiedLocations();
+            const totalOccupied = occupied.length;
+            let checkedCount = 0;
+            let matchedCount = 0;
+
+            occupied.forEach(item => {
+                const key = `${item.location}::${item.barcode}`;
+                if (state.opnameCounts[key] !== undefined) {
+                    checkedCount++;
+                    if (Number(state.opnameCounts[key]) === item.stock) {
+                        matchedCount++;
+                    }
+                }
+            });
+
+            const progressPct = totalOccupied > 0 ? Math.round((checkedCount / totalOccupied) * 100) : 0;
+            const accuracyPct = checkedCount > 0 ? Math.round((matchedCount / checkedCount) * 100) : 0;
+
+            document.getElementById('opname-progress-pct').textContent = `${progressPct}%`;
+            document.getElementById('opname-progress-count').textContent = `${checkedCount} / ${totalOccupied} Lokasi`;
+            document.getElementById('opname-progress-bar').style.width = `${progressPct}%`;
+
+            document.getElementById('opname-accuracy-pct').textContent = `${accuracyPct}%`;
+            document.getElementById('opname-accuracy-detail').textContent = `${matchedCount} Sesuai / ${checkedCount - matchedCount} Selisih`;
+            document.getElementById('opname-accuracy-bar').style.width = `${accuracyPct}%`;
+        }
+
+        function scanForOpname() {
+            startScanner('opname-scan');
+        }
+
+        function handleOpnameScanResult(scannedLoc) {
+            const row = document.getElementById(`opname-row-${scannedLoc}`);
+            if (row) {
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const input = row.querySelector('input');
+                if (input) input.focus();
+            } else {
+                showToast(`Lokasi ${scannedLoc} kosong atau tidak memiliki stok sistem.`, "info");
+            }
+        }
+
+        function applyOpnameAdjustments() {
+            const occupied = getOccupiedLocations();
+            let adjusted = 0;
+            occupied.forEach(item => {
+                const key = `${item.location}::${item.barcode}`;
+                if (state.opnameCounts[key] !== undefined) {
+                    const phys = Number(state.opnameCounts[key]);
+                    if (phys !== item.stock) {
+                        state.inventory[key].stock = phys;
+                        adjusted++;
+                    }
+                }
+            });
+            if (adjusted > 0) {
+                saveState();
+                refreshAllUI();
+                showToast(`${adjusted} lokasi berhasil disesuaikan dengan hasil stok fisik.`, "success");
+            } else {
+                showToast("Tidak ada selisih stok untuk disesuaikan.", "info");
+            }
+        }
+
+        function downloadOpnamePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const occupied = getOccupiedLocations();
+
+            if (occupied.length === 0) {
+                showToast("Tidak ada data lokasi terisi untuk dicetak ke PDF.", "error");
+                return;
+            }
+
+            // Header
+            doc.setFontSize(16);
+            doc.text("LAPORAN STOCK OPNAME GUDANG (WMS PRO)", 14, 18);
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`Tanggal Cetak: ${new Date().toLocaleString('id-ID')}`, 14, 25);
+            doc.text(`Progres Pemeriksaan: ${document.getElementById('opname-progress-pct').textContent} | Akurasi Stok: ${document.getElementById('opname-accuracy-pct').textContent}`, 14, 31);
+
+            const tableRows = occupied.map(item => {
+                const key = `${item.location}::${item.barcode}`;
+                const hasCounted = state.opnameCounts[key] !== undefined;
+                const phys = hasCounted ? Number(state.opnameCounts[key]) : '-';
+                const diff = hasCounted ? phys - item.stock : '-';
+                const acc = hasCounted
+                    ? `${Math.max(0, 100 - (Math.abs(phys - item.stock) / item.stock) * 100).toFixed(0)}%`
+                    : 'Belum Dicek';
+
+                return [
+                    item.location,
+                    `Gondola ${item.gondola}`,
+                    item.sku,
+                    item.name,
+                    item.stock,
+                    phys,
+                    diff,
+                    acc
+                ];
+            });
+
+            doc.autoTable({
+                startY: 37,
+                head: [['Lokasi', 'Gondola', 'SKU', 'Nama Barang', 'Sistem', 'Fisik', 'Selisih', 'Akurasi']],
+                body: tableRows,
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [37, 99, 235] }
+            });
+
+            doc.save(`Laporan_Stock_Opname_${new Date().toISOString().slice(0,10)}.pdf`);
+            showToast("Laporan PDF Stock Opname berhasil diunduh!", "success");
+        }
+
+        // ==================== 9. CSV UPLOAD PARSER ====================
+        function handleCSVUpload(event, type) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    const data = results.data;
+                    if (type === 'BARANG') {
+                        // Deduplicate by BARCODE
+                        const map = new Map();
+                        data.forEach(row => {
+                            const bc = String(row['BARCODE'] || '').trim();
+                            const sku = String(row['SKU'] || '').trim();
+                            const name = String(row['ITEM NAME'] || '').trim();
+                            if (bc && name) {
+                                map.set(bc, { barcode: bc, sku: sku || bc, name });
+                            }
+                        });
+                        if (map.size > 0) {
+                            state.items = Array.from(map.values());
+                            saveState();
+                            populateDatalists();
+                            refreshAllUI();
+                            showToast(`Berhasil memuat ${state.items.length} data barang unik dari CSV!`, "success");
+                        } else {
+                            showToast("Format CSV Barang tidak sesuai. Pastikan ada kolom BARCODE, SKU, ITEM NAME.", "error");
+                        }
+                    } else if (type === 'LOCATION') {
+                        const map = new Map();
+                        data.forEach(row => {
+                            const loc = String(row['LOCATIONS'] || '').trim().toUpperCase();
+                            const gondola = String(row['GONDOLA'] || '-').trim();
+                            const coord = String(row['COORDINATE'] || '').trim();
+                            if (loc) {
+                                map.set(loc, { location: loc, gondola, coordinate: coord });
+                            }
+                        });
+                        if (map.size > 0) {
+                            state.locations = Array.from(map.values());
+                            saveState();
+                            populateDatalists();
+                            refreshAllUI();
+                            showToast(`Berhasil memuat ${state.locations.length} data lokasi dari CSV!`, "success");
+                        } else {
+                            showToast("Format CSV Lokasi tidak sesuai. Pastikan ada kolom LOCATIONS, GONDOLA, COORDINATE.", "error");
+                        }
+                    }
+                }
+            });
+        }
+
+        // ==================== 10. UI HELPERS & NAVIGATION ====================
+        function populateDatalists() {
+            const locList = document.getElementById('location-list');
+            const itemList = document.getElementById('item-list');
+            const bcItemSelect = document.getElementById('bc-item-select');
+            const bcLocSelect = document.getElementById('bc-loc-select');
+            const gondolaFilter = document.getElementById('inventory-gondola-filter');
+
+            locList.innerHTML = state.locations.map(l => `<option value="${l.location}">Gondola ${l.gondola}</option>`).join('');
+            itemList.innerHTML = state.items.map(i => `<option value="${i.barcode}">${i.sku} - ${i.name}</option>`).join('');
+
+            bcItemSelect.innerHTML = `<option value="">-- Pilih Barang --</option>` +
+                state.items.map(i => `<option value="${i.barcode}">${i.sku} - ${i.name}</option>`).join('');
+            bcLocSelect.innerHTML = `<option value="">-- Pilih Lokasi --</option>` +
+                state.locations.map(l => `<option value="${l.location}">${l.location} (Gondola ${l.gondola})</option>`).join('');
+
+            const gondolas = [...new Set(state.locations.map(l => l.gondola))].sort();
+            gondolaFilter.innerHTML = `<option value="ALL">Semua Gondola</option>` +
+                gondolas.map(g => `<option value="${g}">Gondola ${g}</option>`).join('');
+        }
+
+        function refreshAllUI() {
+            // Update KPIs
+            const invList = Object.values(state.inventory);
+            const totalStock = invList.reduce((sum, item) => sum + item.stock, 0);
+            const totalOut = invList.reduce((sum, item) => sum + item.totalOut, 0);
+            const occupiedLocationsCount = new Set(invList.filter(i => i.stock > 0).map(i => i.location)).size;
+
+            document.getElementById('kpi-total-stock').textContent = totalStock.toLocaleString('id-ID');
+            document.getElementById('kpi-filled-locations').innerHTML = `${occupiedLocationsCount} <span class="text-sm font-normal text-slate-400">/ ${state.locations.length}</span>`;
+            document.getElementById('kpi-total-out').textContent = totalOut.toLocaleString('id-ID');
+            document.getElementById('kpi-master-sku').textContent = state.items.length.toLocaleString('id-ID');
+
+            renderLogs();
+            renderInventoryTable();
+            renderOpnameTable();
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('transaction-history-list');
+            if (state.logs.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-8">Belum ada riwayat transaksi.</p>`;
+                return;
+            }
+
+            const badgeColors = {
+                'IN': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+                'MOVE': 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+                'OUT': 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+            };
+
+            container.innerHTML = state.logs.slice(0, 30).map(log => `
+                <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/80 text-xs">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="px-2 py-0.5 rounded-md font-bold text-[10px] ${badgeColors[log.type]}">${log.type}</span>
+                        <span class="text-[11px] text-slate-400">${log.time} • ${log.location}</span>
+                    </div>
+                    <p class="font-semibold text-slate-800 dark:text-slate-200 line-clamp-1">${log.name}</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">${log.detail}</p>
+                </div>
+            `).join('');
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+
+            // Desktop nav active state
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.dataset.tab === tabName) {
+                    btn.classList.add('bg-blue-50', 'text-blue-600', 'dark:bg-blue-900/30', 'dark:text-blue-400');
+                    btn.classList.remove('text-slate-600', 'dark:text-slate-300');
+                } else {
+                    btn.classList.remove('bg-blue-50', 'text-blue-600', 'dark:bg-blue-900/30', 'dark:text-blue-400');
+                    btn.classList.add('text-slate-600', 'dark:text-slate-300');
+                }
+            });
+
+            // Mobile nav active state
+            document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+                if (btn.dataset.tab === tabName) {
+                    btn.classList.add('text-blue-600', 'dark:text-blue-400');
+                    btn.classList.remove('text-slate-500', 'dark:text-slate-400');
+                } else {
+                    btn.classList.remove('text-blue-600', 'dark:text-blue-400');
+                    btn.classList.add('text-slate-500', 'dark:text-slate-400');
+                }
+            });
+        }
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        function openDatabaseModal() {
+            document.getElementById('database-modal').classList.remove('hidden');
+        }
+
+        function closeDatabaseModal() {
+            document.getElementById('database-modal').classList.add('hidden');
+        }
+
+        function showToast(message, type = "info") {
+            const container = document.getElementById('toast-container');
+            const colors = {
+                success: "bg-emerald-600 text-white",
+                error: "bg-rose-600 text-white",
+                info: "bg-slate-800 text-white dark:bg-slate-700"
+            };
+            const toast = document.createElement('div');
+            toast.className = `${colors[type]} px-4 py-3 rounded-xl shadow-lg text-xs font-medium flex items-center justify-between gap-3 pointer-events-auto transition-all duration-300`;
+            toast.innerHTML = `<span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
